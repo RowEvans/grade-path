@@ -26,7 +26,7 @@ def _init_db():
 def scraper():
     con = sqlite3.connect(DB_FILE)
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch()
         page = browser.new_page()
 
         page.goto("https://homeaccesscenter.stjohns.k12.fl.us/HomeAccess/Account/LogOn?ReturnUrl=%2fHomeAccess")
@@ -57,7 +57,12 @@ def scraper():
                 grade = float(text.split()[1])
                 class_id, class_name, period = pending
                 cur = con.cursor()
-                cur.execute("INSERT OR IGNORE INTO grades VALUES (?, ?, ?, ?)", (class_id, period, class_name, grade))
+                cur.execute("""
+                    INSERT OR IGNORE INTO grades (class_id, name, period, grade)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(class_id) DO UPDATE SET
+                        grade = excluded.grade
+                """, (class_id, period, class_name, grade))
                 con.commit()
                 pending = None
             else:

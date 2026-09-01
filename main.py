@@ -2,6 +2,16 @@ import sys
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
+import sqlite3
+import os
+
+DB_FILE = os.path.join(os.path.dirname(__file__), "grades.db")
+
+# COLORS
+GREEN, BORDER_GREEN = "#5FD877", "#3FAE58"
+BLUE, BORDER_BLUE = "#4C8DF0", "#2E6FD1"
+ORANGE, BORDER_ORANGE = "#F0A94C", "#D18A2E"
+RED, BORDER_RED = "#E0554F", "#C0362F"
 
 class Header(QWidget):
     def __init__(self):
@@ -41,26 +51,87 @@ class Header(QWidget):
 class Classes(QWidget):
     def __init__(self):
         super().__init__()
-        self.setStyleSheet("background-color: darkgray;")
+        self.setStyleSheet("padding: 10px;")
         self.setAttribute(Qt.WA_StyledBackground, True)
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
         self.main_layout.setSpacing(8)
 
+        self.con = sqlite3.connect(DB_FILE)
+
+        cur = self.con.cursor()
+        els = cur.execute("SELECT name, grade, class_id, period FROM grades ORDER BY period")
+
+
         # now for one class
-        for item in ["English 4-IB", "AP Economics", "IB TOK 2", "IB Math A & A", "IB Chemistry 3", "IB History of the Americas", "IB Computer Science"]:
-            layout = QHBoxLayout()
-            title = QLabel(item)
-            title.setStyleSheet("font-size: 24px; font-weight: bold; border: 2px; color: white;")
-            grade = QPushButton("95.00")
-            grade.setStyleSheet("border: 4px; border-color: green; background: green; font-weight: bold; font-size: 24px;")
+        for item in els:
+            row = QFrame()
+            row.setStyleSheet("""
+                border: none;
+                border-radius: 10px;
+                background: #333333;
+            """)
+            row.setAttribute(Qt.WA_StyledBackground, True)
 
-            layout.addWidget(title, alignment=Qt.AlignLeft)
+            layout = QHBoxLayout(row)
+            layout.setContentsMargins(0, 0, 0, 8)
+
+            title_layout = QVBoxLayout()
+            title_layout.setContentsMargins(0, 0, 0, 0)
+
+            class_name = item[0]
+            title = QLabel(class_name)
+            title.setStyleSheet("""
+                border: none;
+                font-size: 24px;
+                font-weight: bold;
+                color: white;
+                padding-bottom: 5px;
+            """)
+            title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+
+            id = str(item[2])
+            period = str(item[3])
+            class_id = QLabel(f"{id} - {period}")
+            class_id.setStyleSheet("""
+                font-size: 16px;
+                color: gray;
+            """)
+
+            title_layout.addWidget(title)
+            title_layout.addWidget(class_id)
+
+            grade_num = str(item[1])
+            color, border_color = self.get_grade_colors(grade_num)
+            grade = QPushButton(grade_num)
+            grade.setStyleSheet(f"""
+                border: 2px solid {border_color};
+                border-radius: 5px;
+                background: {color};
+                width: 60px;
+                font-weight: bold;
+                font-size: 24px;
+            """)
+
+            layout.addLayout(title_layout)
             layout.addStretch()
-            layout.addWidget(grade, alignment=Qt.AlignRight)
+            layout.addWidget(grade)
 
-            self.main_layout.addLayout(layout)
+            self.main_layout.addWidget(row)
+
+        self.con.close()
+
+    def get_grade_colors(self, num):
+        grade = float(num)
+        if grade >= 90:
+            return GREEN, BORDER_GREEN
+        elif grade >= 80:
+            return BLUE, BORDER_BLUE
+        elif grade >= 70:
+            return ORANGE, BORDER_ORANGE
+        else:
+            return RED, BORDER_RED
 
 
 
@@ -87,21 +158,28 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self.resize(360, 800)
+        self.setWindowTitle("GradePath")
+        self.setWindowIcon(QIcon("assets/favicon-white.png"))
+        self.resize(500, 800)
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
         self.header = Header()
 
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.classes = Classes()
+        scroll.setWidget(self.classes)
 
         self.footer = Footer()
 
         self.window_layout = QVBoxLayout()
         central_widget.setLayout(self.window_layout)
         self.window_layout.addWidget(self.header, alignment=Qt.AlignTop)
-        self.window_layout.addWidget(self.classes, alignment=Qt.AlignTop)
+        self.window_layout.addWidget(scroll)
         self.window_layout.addWidget(self.footer, alignment=Qt.AlignBottom)
 
 if __name__ == "__main__":
