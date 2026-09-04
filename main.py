@@ -2,6 +2,7 @@ import sys
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
+import scraper
 import sqlite3
 import os
 
@@ -12,6 +13,18 @@ GREEN, BORDER_GREEN = "#5FD877", "#3FAE58"
 BLUE, BORDER_BLUE = "#4C8DF0", "#2E6FD1"
 ORANGE, BORDER_ORANGE = "#F0A94C", "#D18A2E"
 RED, BORDER_RED = "#E0554F", "#C0362F"
+
+class ScraperWorker(QObject):
+    finished = Signal()
+    error = Signal(str)
+
+    def run(self):
+        try:
+            scraper.main()
+        except Exception as e:
+            self.error.emit(str(e))
+        finally:
+            self.finished.emit()
 
 class Header(QWidget):
     def __init__(self):
@@ -30,11 +43,12 @@ class Header(QWidget):
         main_label = QLabel("Grades")
         main_label.setStyleSheet("color: white; font-size: 32px; font-weight:bold; border: 2px;")
 
-        refresh_button = QPushButton("Refresh")
+        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button.clicked.connect(self.start_refresh)
 
         top_layout.addWidget(main_label)
         top_layout.addStretch(1)
-        top_layout.addWidget(refresh_button, alignment=Qt.AlignRight)
+        top_layout.addWidget(self.refresh_button, alignment=Qt.AlignRight)
 
     #   now the nav bar
         nav_bar = QHBoxLayout()
@@ -45,6 +59,33 @@ class Header(QWidget):
 
         self.header_layout.addLayout(top_layout)
         self.header_layout.addLayout(nav_bar)
+
+    def start_refresh(self):
+        self.refresh_button.setEnabled(False)
+        self.refresh_button.setText("Refreshing...")
+
+        self.thread = QThread()
+        self.worker = ScraperWorker()
+        self.worker.moveToThread(self.thread)
+
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+        self.worker.finished.connect(self.on_refresh_done)
+        self.worker.error.connect(self.on_refresh_error)
+
+        self.thread.start()
+
+    def on_refresh_done(self):
+        self.refresh_button.setEnabled(True)
+        self.refresh_button.setText("Refresh")
+        super().reload_classes()
+
+    def on_refresh_error(self, message):
+        self.refresh_button.setEnabled(True)
+        self.refresh_button.setText("Refresh")
+        print("Scraper failed: ", message)
 
 
 
@@ -107,7 +148,7 @@ class Classes(QWidget):
             grade = QPushButton(grade_num)
             grade.setStyleSheet(f"""
                 border: 2px solid {border_color};
-                border-radius: 5px;
+                border-radius: 10px;
                 background: {color};
                 width: 60px;
                 font-weight: bold;
@@ -167,20 +208,26 @@ class MainWindow(QMainWindow):
 
         self.header = Header()
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.NoFrame)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.scroll.setFrameShape(QFrame.NoFrame)
+        self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.classes = Classes()
-        scroll.setWidget(self.classes)
+        self.scroll.setWidget(self.classes)
 
         self.footer = Footer()
 
         self.window_layout = QVBoxLayout()
         central_widget.setLayout(self.window_layout)
         self.window_layout.addWidget(self.header, alignment=Qt.AlignTop)
-        self.window_layout.addWidget(scroll)
+        self.window_layout.addWidget(self.scroll)
         self.window_layout.addWidget(self.footer, alignment=Qt.AlignBottom)
+
+    def reload_classes(self):
+        old = self.classes()
+        self.classes = Classes()
+        self.scroll.setWidget(self.classes)
+        old.deleteLater()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

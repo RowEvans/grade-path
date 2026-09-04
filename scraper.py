@@ -74,7 +74,9 @@ def scraper():
 
         browser.close()
 
-if __name__ == "__main__":
+def main():
     _init_db()
-
     scraper()
+
+if __name__ == "__main__":
+    main()

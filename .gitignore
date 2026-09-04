@@ -3,3 +3,4 @@
 -- SQLite.sql
 
 .vscode
+__pycache__
