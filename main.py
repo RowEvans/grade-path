@@ -13,6 +13,7 @@ GREEN, BORDER_GREEN = "#5FD877", "#3FAE58"
 BLUE, BORDER_BLUE = "#4C8DF0", "#2E6FD1"
 ORANGE, BORDER_ORANGE = "#F0A94C", "#D18A2E"
 RED, BORDER_RED = "#E0554F", "#C0362F"
+CHARCOAL = "#333333"
 
 class ScraperWorker(QObject):
     finished = Signal()
@@ -27,10 +28,17 @@ class ScraperWorker(QObject):
             self.finished.emit()
 
 class Header(QWidget):
+    refreshed = Signal()
+
     def __init__(self):
         super().__init__()
 
-        self.setStyleSheet("background-color: green")
+        self.setStyleSheet(f"""
+            background-color: {GREEN};
+            height: auto; 
+            padding: 0px;
+            border-radius: 5px;
+        """)
         self.setAttribute(Qt.WA_StyledBackground, True)
 
         self.header_layout = QVBoxLayout(self)
@@ -41,9 +49,19 @@ class Header(QWidget):
         top_layout = QHBoxLayout()
 
         main_label = QLabel("Grades")
-        main_label.setStyleSheet("color: white; font-size: 32px; font-weight:bold; border: 2px;")
+        main_label.setStyleSheet(f"""
+            color: white;
+            font-size: 32px;
+            font-weight:bold; 
+            padding-bottom: 12px;
+            padding-left:6px;
+        """)
 
-        self.refresh_button = QPushButton("Refresh")
+        self.refresh_button = QPushButton()
+        self.refresh_button.setStyleSheet("""
+            padding-right: 20px;
+        """)
+        self.refresh_button.setIcon(QIcon("assets/refresh-icon.png"))
         self.refresh_button.clicked.connect(self.start_refresh)
 
         top_layout.addWidget(main_label)
@@ -51,18 +69,50 @@ class Header(QWidget):
         top_layout.addWidget(self.refresh_button, alignment=Qt.AlignRight)
 
     #   now the nav bar
-        nav_bar = QHBoxLayout()
-        for name in ["Q1", "Q2", "Q3", "Q4"]:
+        nav_frame = QFrame()  
+        nav_frame.setStyleSheet("""
+            background: black;
+            border-radius: 8px;
+            max-height: 125px;
+        """)
+        nav_frame.setAttribute(Qt.WA_StyledBackground, True)
+
+        nav_bar = QHBoxLayout(nav_frame)
+
+        self.nav_group = QButtonGroup(self)
+        self.nav_group.setExclusive(True)
+
+        for i, name in enumerate(["Q1", "Q2", "Q3", "Q4"]):
             nav_button = QPushButton(name)
-            nav_button.setStyleSheet("color: white; background: gray; border: none;")
+            nav_button.setCheckable(True)
+            nav_button.setStyleSheet(f"""
+                QPushButton{{
+                    color: gray;
+                    background: {CHARCOAL};
+                    border-radius: 5px;
+                    border: none;
+                    font-size: 12px;
+                }}
+                QPushButton:checked {{
+                    background: {GREEN};
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 700;
+                }}
+                
+            """)
+            if i == 0:
+                nav_button.setChecked(True)
+
+            self.nav_group.addButton(nav_button)
             nav_bar.addWidget(nav_button)
 
         self.header_layout.addLayout(top_layout)
-        self.header_layout.addLayout(nav_bar)
+        self.header_layout.addWidget(nav_frame)
 
     def start_refresh(self):
         self.refresh_button.setEnabled(False)
-        self.refresh_button.setText("Refreshing...")
+        # start refresh animation
 
         self.thread = QThread()
         self.worker = ScraperWorker()
@@ -79,12 +129,10 @@ class Header(QWidget):
 
     def on_refresh_done(self):
         self.refresh_button.setEnabled(True)
-        self.refresh_button.setText("Refresh")
-        super().reload_classes()
+        self.refreshed.emit()
 
     def on_refresh_error(self, message):
         self.refresh_button.setEnabled(True)
-        self.refresh_button.setText("Refresh")
         print("Scraper failed: ", message)
 
 
@@ -107,11 +155,13 @@ class Classes(QWidget):
 
         # now for one class
         for item in els:
+            if item[3] == 2511:
+                continue
             row = QFrame()
-            row.setStyleSheet("""
+            row.setStyleSheet(f"""
                 border: none;
                 border-radius: 10px;
-                background: #333333;
+                background: {CHARCOAL};
             """)
             row.setAttribute(Qt.WA_StyledBackground, True)
 
@@ -202,11 +252,14 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("GradePath")
         self.setWindowIcon(QIcon("assets/favicon-white.png"))
         self.resize(500, 800)
+        self.move(QPoint(1920-550, 100))
+        
 
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
 
         self.header = Header()
+        self.header.refreshed.connect(self.reload_classes)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -224,7 +277,7 @@ class MainWindow(QMainWindow):
         self.window_layout.addWidget(self.footer, alignment=Qt.AlignBottom)
 
     def reload_classes(self):
-        old = self.classes()
+        old = self.classes
         self.classes = Classes()
         self.scroll.setWidget(self.classes)
         old.deleteLater()
