@@ -14,6 +14,7 @@ BLUE, BORDER_BLUE = "#4C8DF0", "#2E6FD1"
 ORANGE, BORDER_ORANGE = "#F0A94C", "#D18A2E"
 RED, BORDER_RED = "#E0554F", "#C0362F"
 CHARCOAL = "#333333"
+SOFT_CHARCOAL = "#4d4d4d"
 
 class ScraperWorker(QObject):
     finished = Signal()
@@ -231,16 +232,46 @@ class Footer(QWidget):
     def __init__(self):
         super().__init__()
 
-        self.setStyleSheet("background: gray")
+        self.setStyleSheet(f"background: {CHARCOAL}")
         self.setAttribute(Qt.WA_StyledBackground, True)
 
         self.main_layout = QHBoxLayout(self)
         self.main_layout.setContentsMargins(10, 10, 10, 10)
         self.main_layout.setSpacing(8)
+        self.main_layout.addStretch()
 
-        for item in ["Home", "Grades", "Calendar"]:
-            button = QPushButton(item)
-            button.setStyleSheet("background: gray; border: none;")
+        self.button_group = QButtonGroup(self)
+        self.button_group.setExclusive(True)
+
+        for i, item in enumerate(["home", "grade", "calendar"]):
+            button = QPushButton()
+            path = os.path.join(os.path.dirname(__file__), "assets/" + item + ".png")
+            active_path = os.path.join(os.path.dirname(__file__), "assets/" + item + "-green.png")
+
+            button.setIcon(QIcon(path))
+            button.setIconSize(QSize(32, 32))
+            button.setFixedSize(48, 48)
+            button.setCheckable(True)
+            button.setStyleSheet(f"""
+                QPushButton{{
+                    border: none;
+                    background: transparent;
+                }}
+
+                QPushButton:checked {{
+                    background: {SOFT_CHARCOAL};
+                    border-radius: 15px;
+                }}
+            """)
+
+            button.toggled.connect(
+                lambda checked, b=button, n=path, a=active_path:
+                b.setIcon(QIcon(a if checked else n))
+            )
+            if i == 1:
+                button.setChecked(True)
+
+            self.button_group.addButton(button)
             self.main_layout.addWidget(button)
             self.main_layout.addStretch()
 
