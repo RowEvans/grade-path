@@ -2,11 +2,14 @@ import sys
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
+from platformdirs import user_data_dir
 import scraper
 import sqlite3
 import os
 
-DB_FILE = os.path.join(os.path.dirname(__file__), "grades.db")
+APP_DIR = user_data_dir("GradePath", "yourname")
+os.makedirs(APP_DIR, exist_ok=True)
+DB_FILE = os.path.join(APP_DIR, "grades.db")
 
 # COLORS
 GREEN, BORDER_GREEN = "#5FD877", "#3FAE58"
@@ -15,6 +18,10 @@ ORANGE, BORDER_ORANGE = "#F0A94C", "#D18A2E"
 RED, BORDER_RED = "#E0554F", "#C0362F"
 CHARCOAL = "#333333"
 SOFT_CHARCOAL = "#4d4d4d"
+
+def resource_path(relative_path):
+    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, relative_path)
 
 class ScraperWorker(QObject):
     finished = Signal()
@@ -62,7 +69,7 @@ class Header(QWidget):
         self.refresh_button.setStyleSheet("""
             padding-right: 20px;
         """)
-        self.refresh_button.setIcon(QIcon("assets/refresh-icon.png"))
+        self.refresh_button.setIcon(QIcon(resource_path("assets/refresh-icon.png")))
         self.refresh_button.clicked.connect(self.start_refresh)
 
         top_layout.addWidget(main_label)
@@ -245,8 +252,8 @@ class Footer(QWidget):
 
         for i, item in enumerate(["home", "grade", "calendar"]):
             button = QPushButton()
-            path = os.path.join(os.path.dirname(__file__), "assets/" + item + ".png")
-            active_path = os.path.join(os.path.dirname(__file__), "assets/" + item + "-green.png")
+            path = resource_path("assets/" + item + ".png")
+            active_path = resource_path("assets/" + item + "-green.png")
 
             button.setIcon(QIcon(path))
             button.setIconSize(QSize(32, 32))
@@ -281,7 +288,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("GradePath")
-        self.setWindowIcon(QIcon("assets/favicon-white.png"))
+        self.setWindowIcon(QIcon(resource_path("assets/favicon-white.png")))
         self.resize(500, 800)
         self.move(QPoint(1920-550, 100))
         

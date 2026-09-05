@@ -1,6 +1,7 @@
 from playwright.sync_api import sync_playwright
 import sqlite3
 from dotenv import load_dotenv
+from platformdirs import user_data_dir
 import os
 
 load_dotenv()
@@ -8,7 +9,9 @@ load_dotenv()
 username = os.getenv("HAC_USERNAME")
 password = os.getenv("HAC_PASSWORD")
 
-DB_FILE = os.path.join(os.path.dirname(__file__), "grades.db")
+APP_DIR = user_data_dir("GradePath", "yourname")
+os.makedirs(APP_DIR, exist_ok=True)
+DB_FILE = os.path.join(APP_DIR, "grades.db")
 
 def _init_db():
     con = sqlite3.connect(DB_FILE)
