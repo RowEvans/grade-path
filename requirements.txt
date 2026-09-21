@@ -2,3 +2,4 @@ playwright
 python-dotenv
 PySide6
 platformdirs
+keyring

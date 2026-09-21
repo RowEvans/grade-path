@@ -3,9 +3,16 @@ from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from platformdirs import user_data_dir
+from dotenv import load_dotenv
+from scraper import LoginFailedError
 import scraper
 import sqlite3
 import os
+
+load_dotenv()
+
+username = os.getenv("HAC_USERNAME")
+password = os.getenv("HAC_PASSWORD")
 
 APP_DIR = user_data_dir("GradePath", "yourname")
 os.makedirs(APP_DIR, exist_ok=True)
@@ -26,10 +33,13 @@ def resource_path(relative_path):
 class ScraperWorker(QObject):
     finished = Signal()
     error = Signal(str)
+    login_error = Signal()
 
     def run(self):
         try:
-            scraper.main()
+            scraper.login_and_scrape(username, password)
+        except LoginFailedError:
+            self.login_error.emit()
         except Exception as e:
             self.error.emit(str(e))
         finally:
@@ -143,8 +153,6 @@ class Header(QWidget):
         self.refresh_button.setEnabled(True)
         print("Scraper failed: ", message)
 
-
-
 class Classes(QWidget):
     def __init__(self):
         super().__init__()
@@ -158,12 +166,11 @@ class Classes(QWidget):
         self.con = sqlite3.connect(DB_FILE)
 
         cur = self.con.cursor()
-        els = cur.execute("SELECT name, grade, class_id, period FROM grades ORDER BY period")
-
+        els = cur.execute("SELECT name, grade, class_id, period FROM grades ORDER BY name")
 
         # now for one class
         for item in els:
-            if item[3] == 2511:
+            if item[0] == '2511.0':
                 continue
             row = QFrame()
             row.setStyleSheet(f"""
@@ -179,7 +186,7 @@ class Classes(QWidget):
             title_layout = QVBoxLayout()
             title_layout.setContentsMargins(0, 0, 0, 0)
 
-            class_name = item[0]
+            class_name = item[3] 
             title = QLabel(class_name)
             title.setStyleSheet("""
                 border: none;
@@ -191,7 +198,7 @@ class Classes(QWidget):
             title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
             id = str(item[2])
-            period = str(item[3])
+            period = str(item[0])
             class_id = QLabel(f"{id} - {period}")
             class_id.setStyleSheet("""
                 font-size: 16px;
@@ -231,9 +238,6 @@ class Classes(QWidget):
             return ORANGE, BORDER_ORANGE
         else:
             return RED, BORDER_RED
-
-
-
 
 class Footer(QWidget):
     def __init__(self):
@@ -290,7 +294,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("GradePath")
         self.setWindowIcon(QIcon(resource_path("assets/favicon-white.png")))
         self.resize(500, 800)
-        self.move(QPoint(1920-550, 100))
+        self.move(QPoint(1280-550, 100))
         
 
         central_widget = QWidget()
@@ -322,6 +326,7 @@ class MainWindow(QMainWindow):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    scraper.login_and_scrape(username, password)
     window = MainWindow()
 
     window.show()
