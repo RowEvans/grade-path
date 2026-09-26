@@ -170,7 +170,7 @@ class Classes(QWidget):
 
         # now for one class
         for item in els:
-            if item[0] == '2511.0':
+            if item[3] == 2511:
                 continue
             row = QFrame()
             row.setStyleSheet(f"""
@@ -186,7 +186,7 @@ class Classes(QWidget):
             title_layout = QVBoxLayout()
             title_layout.setContentsMargins(0, 0, 0, 0)
 
-            class_name = item[3] 
+            class_name = item[0] 
             title = QLabel(class_name)
             title.setStyleSheet("""
                 border: none;
