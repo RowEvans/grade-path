@@ -23,21 +23,30 @@ def resource_path(relative_path):
     return os.path.join(base, relative_path)
 
 class LoginPage(QWidget):
+    submitted = Signal(str, str)
+
     def __init__(self):
         super().__init__()
 
-        center_card = CenterCard()
+        self.center_card = CenterCard()
+        self.center_card.login_button.clicked.connect(self.submit)
 
         outer_layout = QHBoxLayout(self)
         outer_layout.addStretch()
 
         inner_layout = QVBoxLayout()
         inner_layout.addStretch()
-        inner_layout.addWidget(center_card)
+        inner_layout.addWidget(self.center_card)
         inner_layout.addStretch()
 
         outer_layout.addLayout(inner_layout)
         outer_layout.addStretch()
+
+    def submit(self):
+        self.submitted.emit(
+            self.center_card.username_label.text(),
+            self.center_card.password_label.text()
+        )
 
     
 class CenterCard(QFrame):
@@ -84,14 +93,14 @@ class CenterCard(QFrame):
             width: 10px;
         """)
 
-        username_label = QLineEdit(placeholderText="Username")
-        username_label.setStyleSheet(f"""
+        self.username_label = QLineEdit(placeholderText="Username")
+        self.username_label.setStyleSheet(f"""
             border: none;
             padding-left: 0px;
         """)
 
         username_layout.addWidget(user_icon)
-        username_layout.addWidget(username_label)
+        username_layout.addWidget(self.username_label)
 
         password_frame = QFrame()
         password_frame.setStyleSheet(f"""
@@ -112,61 +121,43 @@ class CenterCard(QFrame):
             width: 10px;
         """)
 
-        password_label = QLineEdit(placeholderText="Password")
-        password_label.setEchoMode(QLineEdit.EchoMode.Password)
-        password_label.setStyleSheet(f"""
+        self.password_label = QLineEdit(placeholderText="Password")
+        self.password_label.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_label.setStyleSheet(f"""
             border: none;
             padding-left: 0px;
         """)
 
         password_layout.addWidget(lock_icon)
-        password_layout.addWidget(password_label)
+        password_layout.addWidget(self.password_label)
 
-        login_frame = QFrame()
-        login_frame.setStyleSheet(f"""
-            background: {GREEN};
-            padding: 0;
-        """)
-
-        login_layout = QHBoxLayout(login_frame)
         self.login_button = QPushButton("Login")
         self.login_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         self.login_button.clicked.connect(self.loading)
         self.login_button.setStyleSheet(f"""
             QPushButton{{
+                background: {GREEN};
+                color: white;
                 border: none;
-                padding: 0;
-                font-weight: bold;
+                padding: 10px;
+                font-weight: 700;
                 margin-top: 10px;
             }}
             
             QPushButton:disabled {{
+                background: {DARK_GREEN};
                 font-weight: 400;
                 color: white;
             }}
         """)
-        self.spinner = QLabel()
-        self.movie = QMovie(resource_path("assets/loading.gif"))
-        self.spinner.setMovie(self.movie)
-        self.spinner.setFixedSize(24, 24)
-        self.spinner.setVisible(False)
-        self.spinner.setStyleSheet("""
-            background: transparent;
-            border: none;
-        """)
-        login_layout.addWidget(self.login_button)
-        login_layout.addWidget(self.spinner)
-        login_layout.addStretch()
 
         self.main_layout.addWidget(title)
         self.main_layout.addWidget(username_frame)
         self.main_layout.addWidget(password_frame)
-        self.main_layout.addWidget(login_frame)
+        self.main_layout.addWidget(self.login_button)
 
     def loading(self):
         self.login_button.setEnabled(False)
-        self.spinner.setVisible(True)
-        self.movie.start()
 
 
 class MainWindow(QMainWindow):

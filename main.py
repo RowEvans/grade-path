@@ -5,6 +5,7 @@ from PySide6.QtCore import *
 from platformdirs import user_data_dir
 from dotenv import load_dotenv
 from scraper import LoginFailedError
+from login_page import LoginPage
 import scraper
 import sqlite3
 import os
@@ -286,19 +287,9 @@ class Footer(QWidget):
             self.main_layout.addWidget(button)
             self.main_layout.addStretch()
 
-
-class MainWindow(QMainWindow):
+class LoggedInView(QWidget):
     def __init__(self):
-        super().__init__()
-
-        self.setWindowTitle("GradePath")
-        self.setWindowIcon(QIcon(resource_path("assets/favicon-white.png")))
-        self.resize(500, 800)
-        self.move(QPoint(1280-550, 100))
-        
-
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        super().__init__()    
 
         self.header = Header()
         self.header.refreshed.connect(self.reload_classes)
@@ -312,21 +303,46 @@ class MainWindow(QMainWindow):
 
         self.footer = Footer()
 
-        self.window_layout = QVBoxLayout()
-        central_widget.setLayout(self.window_layout)
+        self.window_layout = QVBoxLayout(self)
         self.window_layout.addWidget(self.header, alignment=Qt.AlignTop)
-        self.window_layout.addWidget(self.scroll)
+        self.window_layout. addWidget(self.scroll)
         self.window_layout.addWidget(self.footer, alignment=Qt.AlignBottom)
 
     def reload_classes(self):
         old = self.classes
         self.classes = Classes()
         self.scroll.setWidget(self.classes)
-        old.deleteLater()
+        old.deleteLater()   
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("GradePath")
+        self.setWindowIcon(QIcon(resource_path("assets/favicon-white.png")))
+        self.resize(500, 800)
+        self.move(QPoint(1280-550, 100))
+        
+
+        self.stack = QStackedWidget()
+        self.logged_in_view = LoggedInView()
+        self.login_page = LoginPage()
+        self.login_page.submitted.connect(self.login)
+        
+        self.stack.addWidget(self.logged_in_view)
+        self.stack.addWidget(self.login_page)
+        self.stack.setCurrentWidget(self.login_page)
+        self.setCentralWidget(self.stack)
+
+    def login(self, usr, pw):
+        print('it was submitted', usr, pw)
+        self.stack.setCurrentWidget(self.logged_in_view)
+
+    
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    scraper.login_and_scrape(username, password)
     window = MainWindow()
 
     window.show()
