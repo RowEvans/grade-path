@@ -22,6 +22,30 @@ def resource_path(relative_path):
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, relative_path)
 
+class LoadingPage(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.spinner = QLabel()
+        self.movie = QMovie(resource_path("assets/loading.gif"))
+        self.movie.setScaledSize(QSize(24, 24))
+        self.spinner.setMovie(self.movie)
+
+        text = QLabel("Logging in...")
+
+        layout = QVBoxLayout(self)
+        layout.addStretch()
+        layout.addWidget(self.spinner, alignment=Qt.AlignCenter)
+        layout.addWidget(text, alignment=Qt.AlignCenter)
+        layout.addStretch()
+
+    def showEvent(self, event):
+        self.movie.start()
+        super().showEvent(event)
+
+    def hideEvent(self, event):
+        self.movie.stop()
+        super().hideEvent(event)
+
 class LoginPage(QWidget):
     submitted = Signal(str, str)
 
@@ -47,6 +71,11 @@ class LoginPage(QWidget):
             self.center_card.username_label.text(),
             self.center_card.password_label.text()
         )
+
+    def show_error(self, msg):
+        self.center_card.error_label.setText(msg)
+        self.center_card.error_label.setVisible(True)
+        self.center_card.login_button.setEnabled(True)
 
     
 class CenterCard(QFrame):
@@ -131,9 +160,12 @@ class CenterCard(QFrame):
         password_layout.addWidget(lock_icon)
         password_layout.addWidget(self.password_label)
 
+        self.error_label = QLabel()
+        self.error_label.setStyleSheet("color: red;")
+        self.error_label.setVisible(False)
+
         self.login_button = QPushButton("Login")
         self.login_button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-        self.login_button.clicked.connect(self.loading)
         self.login_button.setStyleSheet(f"""
             QPushButton{{
                 background: {GREEN};
@@ -154,10 +186,8 @@ class CenterCard(QFrame):
         self.main_layout.addWidget(title)
         self.main_layout.addWidget(username_frame)
         self.main_layout.addWidget(password_frame)
+        self.main_layout.addWidget(self.error_label)
         self.main_layout.addWidget(self.login_button)
-
-    def loading(self):
-        self.login_button.setEnabled(False)
 
 
 class MainWindow(QMainWindow):

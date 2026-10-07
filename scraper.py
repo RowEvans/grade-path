@@ -21,6 +21,14 @@ def _init_db():
         period INTEGER, 
         grade REAL)
     """)
+
+    cur.execute("CREATE TABLE IF NOT EXISTS accounts(username TEXT PRIMARY KEY)")
+    con.commit()
+    con.close()
+
+def save_account(username):
+    con = sqlite3.connect(DB_FILE)
+    con.execute("INSERT OR REPLACE INTO accounts(username) VALUES (?)", (username,))
     con.commit()
     con.close()
 
@@ -53,7 +61,7 @@ def scrape(page, con):
 
         elif "Average" in text and pending:
             grade = float(text.split()[1])
-            class_id, class_name, period = pending
+            class_id, period, class_name = pending
             cur = con.cursor()
             cur.execute("""
                 INSERT OR IGNORE INTO grades (class_id, name, period, grade)
@@ -64,7 +72,7 @@ def scrape(page, con):
             con.commit()
             pending = None
         else:
-            class_id, class_name, period = pending
+            class_id, period, class_name = pending
             cur = con.cursor()
             cur.execute("INSERT OR IGNORE INTO grades VALUES (?, ?, ?, 0.0)", (class_id, class_name, period))
             con.commit()
@@ -96,3 +104,21 @@ def login_and_scrape(username, password):
 
         finally:
             browser.close()
+
+def get_saved_login():
+    con = sqlite3.connect(DB_FILE)
+    try: 
+        row = con.execute("SELECT username FROM accounts LIMIT 1").fetchone()
+        if row is None:
+            return None
+
+        user = row[0]
+        pw = keyring.get_password("GradePath", user)
+        if pw is None:
+            con.execute("DELETE FROM accounts WHERE username = ?", (user,))
+            con.commit()
+            return None
+
+        return user, pw
+    finally:
+        con.close()

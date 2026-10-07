@@ -3,17 +3,12 @@ from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 from platformdirs import user_data_dir
-from dotenv import load_dotenv
 from scraper import LoginFailedError
-from login_page import LoginPage
+from login_page import LoginPage, LoadingPage
+import keyring
 import scraper
 import sqlite3
 import os
-
-load_dotenv()
-
-username = os.getenv("HAC_USERNAME")
-password = os.getenv("HAC_PASSWORD")
 
 APP_DIR = user_data_dir("GradePath", "yourname")
 os.makedirs(APP_DIR, exist_ok=True)
@@ -31,6 +26,31 @@ def resource_path(relative_path):
     base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
     return os.path.join(base, relative_path)
 
+class LoginWorker(QObject):
+    succeeded = Signal()
+    login_error = Signal()
+    error = Signal(str)
+    finished = Signal()
+
+    def __init__(self, username, password):
+        super().__init__()
+
+        self.username = username
+        self.password = password
+
+    def run(self):
+        try:
+            scraper.login_and_scrape(self.username, self.password)
+            keyring.set_password("GradePath", self.username, self.password)
+            scraper.save_account(self.username)
+            self.succeeded.emit()
+        except LoginFailedError:
+            self.login_error.emit()
+        except Exception as e:
+            self.error.emit(str(e))
+        finally:
+            self.finished.emit()
+
 class ScraperWorker(QObject):
     finished = Signal()
     error = Signal(str)
@@ -38,7 +58,12 @@ class ScraperWorker(QObject):
 
     def run(self):
         try:
-            scraper.login_and_scrape(username, password)
+            saved = scraper.get_saved_login()
+            if saved is None:
+                self.login_error.emit()
+                return
+            user, pw = saved
+            scraper.login_and_scrape(user, pw)
         except LoginFailedError:
             self.login_error.emit()
         except Exception as e:
@@ -48,6 +73,7 @@ class ScraperWorker(QObject):
 
 class Header(QWidget):
     refreshed = Signal()
+    login_error = Signal()
 
     def __init__(self):
         super().__init__()
@@ -138,6 +164,7 @@ class Header(QWidget):
         self.worker.moveToThread(self.thread)
 
         self.thread.started.connect(self.worker.run)
+        self.worker.login_error.connect(self.on_login_error)
         self.worker.finished.connect(self.thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
         self.thread.finished.connect(self.thread.deleteLater)
@@ -154,6 +181,10 @@ class Header(QWidget):
         self.refresh_button.setEnabled(True)
         print("Scraper failed: ", message)
 
+    def on_login_error(self):
+        self.refresh_button.setEnabled(True)
+        self.login_failed.emit()
+
 class Classes(QWidget):
     def __init__(self):
         super().__init__()
@@ -167,7 +198,7 @@ class Classes(QWidget):
         self.con = sqlite3.connect(DB_FILE)
 
         cur = self.con.cursor()
-        els = cur.execute("SELECT name, grade, class_id, period FROM grades ORDER BY name")
+        els = cur.execute("SELECT name, grade, class_id, period FROM grades ORDER BY period")
 
         # now for one class
         for item in els:
@@ -198,8 +229,8 @@ class Classes(QWidget):
             """)
             title.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-            id = str(item[2])
-            period = str(item[0])
+            id = item[2]
+            period = item[3]
             class_id = QLabel(f"{id} - {period}")
             class_id.setStyleSheet("""
                 font-size: 16px;
@@ -288,11 +319,14 @@ class Footer(QWidget):
             self.main_layout.addStretch()
 
 class LoggedInView(QWidget):
+    login_failed = Signal()
+
     def __init__(self):
         super().__init__()    
 
         self.header = Header()
         self.header.refreshed.connect(self.reload_classes)
+        self.header.login_error.connect(self.login_failed)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -309,10 +343,10 @@ class LoggedInView(QWidget):
         self.window_layout.addWidget(self.footer, alignment=Qt.AlignBottom)
 
     def reload_classes(self):
-        old = self.classes
+        #old = self.classes
         self.classes = Classes()
         self.scroll.setWidget(self.classes)
-        old.deleteLater()   
+        #old.deleteLater()   
 
 
 class MainWindow(QMainWindow):
@@ -327,24 +361,57 @@ class MainWindow(QMainWindow):
 
         self.stack = QStackedWidget()
         self.logged_in_view = LoggedInView()
+        self.logged_in_view.login_failed.connect(self.session_expired)
         self.login_page = LoginPage()
         self.login_page.submitted.connect(self.login)
+        self.loading_page = LoadingPage()
         
         self.stack.addWidget(self.logged_in_view)
         self.stack.addWidget(self.login_page)
-        self.stack.setCurrentWidget(self.login_page)
+        self.stack.addWidget(self.loading_page)
+        if scraper.get_saved_login():
+            self.stack.setCurrentWidget(self.logged_in_view)
+        else:
+            self.stack.setCurrentWidget(self.login_page)
         self.setCentralWidget(self.stack)
 
     def login(self, usr, pw):
-        print('it was submitted', usr, pw)
+        self.stack.setCurrentWidget(self.loading_page)
+
+        self.login_thread = QThread()
+        self.login_worker = LoginWorker(usr, pw)
+        self.login_worker.moveToThread(self.login_thread)
+
+        self.login_thread.started.connect(self.login_worker.run)
+        self.login_worker.finished.connect(self.login_thread.quit)
+        self.login_worker.finished.connect(self.login_worker.deleteLater)
+        self.login_thread.finished.connect(self.login_thread.deleteLater)
+
+        self.login_worker.succeeded.connect(self.login_success)
+        self.login_worker.login_error.connect(self.bad_login)
+        self.login_worker.error.connect(self.login_failed)
+
+        self.login_thread.start()
+
+    def login_success(self):
+        self.logged_in_view.reload_classes()
         self.stack.setCurrentWidget(self.logged_in_view)
 
-    
+    def login_failed(self, msg):
+        self.login_page.show_error(msg)
+        self.stack.setCurrentWidget(self.login_page)
+
+    def bad_login(self):
+        self.login_failed("Invalid username or password.")
+
+    def session_expired(self):
+        self.login_failed("Your saved login no longer works. Please log in again.")
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    scraper._init_db()
     window = MainWindow()
-
     window.show()
 
     sys.exit(app.exec())
