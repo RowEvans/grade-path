@@ -10,10 +10,6 @@ import scraper
 import sqlite3
 import os
 
-APP_DIR = user_data_dir("GradePath", "yourname")
-os.makedirs(APP_DIR, exist_ok=True)
-DB_FILE = os.path.join(APP_DIR, "grades.db")
-
 # COLORS
 GREEN, BORDER_GREEN = "#5FD877", "#3FAE58"
 BLUE, BORDER_BLUE = "#4C8DF0", "#2E6FD1"
@@ -22,9 +18,8 @@ RED, BORDER_RED = "#E0554F", "#C0362F"
 CHARCOAL = "#333333"
 SOFT_CHARCOAL = "#4d4d4d"
 
-def resource_path(relative_path):
-    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, relative_path)
+def find_path(file):
+    return os.path.join(os.path.dirname(__file__), file)
 
 class LoginWorker(QObject):
     succeeded = Signal()
@@ -106,7 +101,7 @@ class Header(QWidget):
         self.refresh_button.setStyleSheet("""
             padding-right: 20px;
         """)
-        self.refresh_button.setIcon(QIcon(resource_path("assets/refresh-icon.png")))
+        self.refresh_button.setIcon(QIcon(find_path("assets/refresh-icon.png")))
         self.refresh_button.clicked.connect(self.start_refresh)
 
         top_layout.addWidget(main_label)
@@ -195,7 +190,7 @@ class Classes(QWidget):
         self.main_layout.setContentsMargins(10, 10, 10, 10)
         self.main_layout.setSpacing(8)
 
-        self.con = sqlite3.connect(DB_FILE)
+        self.con = sqlite3.connect(find_path("grades.db"))
 
         cur = self.con.cursor()
         els = cur.execute("SELECT name, grade, class_id, period FROM grades ORDER BY period")
@@ -288,8 +283,8 @@ class Footer(QWidget):
 
         for i, item in enumerate(["home", "grade", "calendar"]):
             button = QPushButton()
-            path = resource_path("assets/" + item + ".png")
-            active_path = resource_path("assets/" + item + "-green.png")
+            path = find_path("assets/" + item + ".png")
+            active_path = find_path("assets/" + item + "-green.png")
 
             button.setIcon(QIcon(path))
             button.setIconSize(QSize(32, 32))
@@ -354,7 +349,7 @@ class MainWindow(QMainWindow):
         super().__init__()
 
         self.setWindowTitle("GradePath")
-        self.setWindowIcon(QIcon(resource_path("assets/favicon-white.png")))
+        self.setWindowIcon(QIcon(find_path("assets/favicon-white.png")))
         self.resize(500, 800)
         self.move(QPoint(1280-550, 100))
         

@@ -4,9 +4,7 @@ from platformdirs import user_data_dir
 import os
 import keyring
 
-APP_DIR = user_data_dir("GradePath", "yourname")
-os.makedirs(APP_DIR, exist_ok=True)
-DB_FILE = os.path.join(APP_DIR, "grades.db")
+DB_FILE = os.path.join(os.path.dirname(__file__), "grades.db")
 
 class LoginFailedError(Exception):
     pass

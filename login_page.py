@@ -9,24 +9,20 @@ import scraper
 import sqlite3
 import os
 
-APP_DIR = user_data_dir("GradePath", "yourname")
-os.makedirs(APP_DIR, exist_ok=True)
-
 CHARCOAL = "#333333"
 DEEP_CHARCOAL = "#222222"
 SOFT_CHARCOAL = "#4d4d4d"
 GREEN = "#5FD877"
 DARK_GREEN = "#3FAE58"
 
-def resource_path(relative_path):
-    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, relative_path)
+def find_path(file):
+    return os.path.join(os.path.dirname(__file__), file)
 
 class LoadingPage(QWidget):
     def __init__(self):
         super().__init__()
         self.spinner = QLabel()
-        self.movie = QMovie(resource_path("assets/loading.gif"))
+        self.movie = QMovie(find_path("assets/loading.gif"))
         self.movie.setScaledSize(QSize(24, 24))
         self.spinner.setMovie(self.movie)
 
@@ -114,7 +110,7 @@ class CenterCard(QFrame):
 
         username_layout = QHBoxLayout(username_frame)
         user_icon = QPushButton()
-        user_icon.setIcon(QIcon(resource_path("assets/user.png")))
+        user_icon.setIcon(QIcon(find_path("assets/user.png")))
         user_icon.setEnabled(False)
         user_icon.setStyleSheet("""
             background: transparent;
@@ -142,7 +138,7 @@ class CenterCard(QFrame):
 
         password_layout = QHBoxLayout(password_frame)
         lock_icon = QPushButton()
-        lock_icon.setIcon(QIcon(resource_path("assets/lock.png")))
+        lock_icon.setIcon(QIcon(find_path("assets/lock.png")))
         lock_icon.setEnabled(False)
         lock_icon.setStyleSheet("""
             background: transparent;
