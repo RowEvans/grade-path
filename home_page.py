@@ -5,29 +5,60 @@ from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
 
-
-APP_DIR = user_data_dir("GradePath", "yourname")
-os.makedirs(APP_DIR, exist_ok=True)
-DB_FILE = os.path.join(APP_DIR, "grades.db")
-
 GREEN, BORDER_GREEN = "#5FD877", "#3FAE58"
 ICON_GREEN = "#78D88B"
 CHARCOAL = "#333333"
+SOFT_CHARCOAL = "#4d4d4d"
 
-def resource_path(relative_path):
-    base = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-    return os.path.join(base, relative_path)
+def find_path(file):
+    return os.path.join(os.path.dirname(__file__), file)
 
 class HomePage(QWidget):
     def __init__(self):
         super().__init__()
         self.header = Header()
         self.center = CenterPage()
+        self.footer = Footer()
 
         self.layout = QVBoxLayout(self)
         self.layout.addWidget(self.header)
-        self.layout.addWidget(self.center)
+        self.layout.addWidget(self.center, 1)
+        self.layout.addWidget(self.footer)
 
+class accountDialog(QDialog):
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("more testing...")
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+
+        self.setStyleSheet(f"""
+            QDialog {{
+                background: {ICON_GREEN};
+                border-radius: 30px;
+            }}
+            QLabel {{
+                color: white;
+                font-size: 18px;
+                font-weight: bold;
+            }}
+        """)
+
+        QBtn = (
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+
+        self.buttonBox = QDialogButtonBox(QBtn)
+        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.rejected.connect(self.reject)
+
+        layout = QVBoxLayout()
+        message = QLabel("we chillin dog?")
+        layout.addWidget(message)
+        layout.addWidget(self.buttonBox)
+        self.setLayout(layout)
+        
 
 class Header(QWidget):
     refreshed = Signal()
@@ -38,8 +69,8 @@ class Header(QWidget):
 
         self.setStyleSheet(f"""
             background-color: {GREEN};
-            height: auto;
             padding: 0px;
+            height: auto;
             border-radius: 5px;
         """)
         self.setAttribute(Qt.WA_StyledBackground, True)
@@ -56,12 +87,12 @@ class Header(QWidget):
             color: white;
             font-size: 32px;
             font-weight:bold; 
-            padding-bottom: 12px;
             padding-left:6px;
+            padding-bottom: 12px;
         """)
 
-        self.refresh_button = QPushButton("R")
-        self.refresh_button.setStyleSheet(f"""
+        self.icon_button = QPushButton("R")
+        self.icon_button.setStyleSheet(f"""
             color: white;
             font-weight: 700;
             font-size: 18px;
@@ -72,16 +103,73 @@ class Header(QWidget):
             height: auto;
             text-align: center;
         """)
+        self.icon_button.clicked.connect(self.button_clicked)
 
         top_layout.addWidget(main_label)
         top_layout.addStretch(1)
-        top_layout.addWidget(self.refresh_button, alignment=Qt.AlignRight)
+        top_layout.addWidget(self.icon_button, alignment=Qt.AlignRight)
 
         self.header_layout.addLayout(top_layout)
+
+    def button_clicked(self):
+        dlg = accountDialog()
+        dlg.adjustSize()
+        center = self.window().geometry().center()
+        dlg.move(center - dlg.rect().center())
+        dlg.exec()
+
+
 
 class CenterPage(QWidget):
     def __init__(self):
         super().__init__()
+
+class Footer(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self.setStyleSheet(f"background: {CHARCOAL}")
+        self.setAttribute(Qt.WA_StyledBackground, True)
+
+        self.main_layout = QHBoxLayout(self)
+        self.main_layout.setContentsMargins(10, 10, 10, 10)
+        self.main_layout.setSpacing(8)
+        self.main_layout.addStretch()
+
+        self.button_group = QButtonGroup(self)
+        self.button_group.setExclusive(True)
+
+        for i, item in enumerate(["home", "grade", "calendar"]):
+            button = QPushButton()
+            path = find_path("assets/" + item + ".png")
+            active_path = find_path("assets/" + item + "-green.png")
+
+            button.setIcon(QIcon(path))
+            button.setIconSize(QSize(32, 32))
+            button.setFixedSize(48, 48)
+            button.setCheckable(True)
+            button.setStyleSheet(f"""
+                QPushButton{{
+                    border: none;
+                    background: transparent;
+                }}
+
+                QPushButton:checked {{
+                    background: {SOFT_CHARCOAL};
+                    border-radius: 15px;
+                }}
+            """)
+
+            button.toggled.connect(
+                lambda checked, b=button, n=path, a=active_path:
+                b.setIcon(QIcon(a if checked else n))
+            )
+            if i == 0:
+                button.setChecked(True)
+
+            self.button_group.addButton(button)
+            self.main_layout.addWidget(button)
+            self.main_layout.addStretch()
 
 
 class MainWindow(QMainWindow):
