@@ -5,6 +5,7 @@ from PySide6.QtCore import *
 from platformdirs import user_data_dir
 from scraper import LoginFailedError
 from login_page import LoginPage, LoadingPage
+from home_page import HomePage
 import keyring
 import scraper
 import sqlite3
@@ -360,15 +361,22 @@ class MainWindow(QMainWindow):
         self.login_page = LoginPage()
         self.login_page.submitted.connect(self.login)
         self.loading_page = LoadingPage()
+        self.home_page = HomePage()
+        self.home_page.add_account.connect(self.open_login)
+        
         
         self.stack.addWidget(self.logged_in_view)
         self.stack.addWidget(self.login_page)
         self.stack.addWidget(self.loading_page)
+        self.stack.addWidget(self.home_page)
         if scraper.get_saved_login():
-            self.stack.setCurrentWidget(self.logged_in_view)
+            self.stack.setCurrentWidget(self.home_page)
         else:
             self.stack.setCurrentWidget(self.login_page)
         self.setCentralWidget(self.stack)
+
+    def open_login(self):
+        self.stack.setCurrentWidget(self.login_page)
 
     def login(self, usr, pw):
         self.stack.setCurrentWidget(self.loading_page)

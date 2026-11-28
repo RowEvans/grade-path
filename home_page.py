@@ -1,6 +1,7 @@
 import sys
 import os
 from platformdirs import user_data_dir
+import sqlite3
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
 from PySide6.QtCore import *
@@ -14,9 +15,11 @@ def find_path(file):
     return os.path.join(os.path.dirname(__file__), file)
 
 class HomePage(QWidget):
+    add_account = Signal()
     def __init__(self):
         super().__init__()
         self.header = Header()
+        self.header.add_account.connect(self.add_account.emit)
         self.center = CenterPage()
         self.footer = Footer()
 
@@ -26,17 +29,16 @@ class HomePage(QWidget):
         self.layout.addWidget(self.footer)
 
 class accountDialog(QDialog):
+    add_account = Signal()
     def __init__(self):
         super().__init__()
 
-        self.setWindowTitle("more testing...")
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground, True)
-
+        #self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setMinimumSize(300, 100)
         self.setStyleSheet(f"""
             QDialog {{
-                background: {ICON_GREEN};
-                border-radius: 30px;
+                background: {CHARCOAL};
+                border-radius: 20px;
             }}
             QLabel {{
                 color: white;
@@ -45,24 +47,40 @@ class accountDialog(QDialog):
             }}
         """)
 
-        QBtn = (
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
-        )
-
-        self.buttonBox = QDialogButtonBox(QBtn)
-        self.buttonBox.accepted.connect(self.accept)
-        self.buttonBox.rejected.connect(self.reject)
-
         layout = QVBoxLayout()
-        message = QLabel("we chillin dog?")
-        layout.addWidget(message)
-        layout.addWidget(self.buttonBox)
+
+        new_account = QPushButton("+ Add new account")
+        new_account.setStyleSheet(f"""
+            background: {BORDER_GREEN};
+            padding: 5px;
+            border: 2px solid {ICON_GREEN};
+            border-radius: 5px;
+            color: white;
+        """)
+        new_account.clicked.connect(self.add_account.emit)
+        new_account.clicked.connect(self.reject)
+
+        self.con = sqlite3.connect(find_path("grades.db"))
+        
+        cur = self.con.cursor()
+        els = cur.execute("SELECT username FROM accounts")
+
+        for username in els:
+            account = QLabel(username[0])
+            account.setStyleSheet(f"""
+                background: {CHARCOAL};
+            """)
+            layout.addWidget(account)
+
+        layout.addWidget(new_account)
         self.setLayout(layout)
+
         
 
 class Header(QWidget):
     refreshed = Signal()
     login_error = Signal()
+    add_account = Signal()
 
     def __init__(self):
         super().__init__()
@@ -113,6 +131,7 @@ class Header(QWidget):
 
     def button_clicked(self):
         dlg = accountDialog()
+        dlg.add_account.connect(self.add_account.emit)
         dlg.adjustSize()
         center = self.window().geometry().center()
         dlg.move(center - dlg.rect().center())
@@ -125,6 +144,7 @@ class CenterPage(QWidget):
         super().__init__()
 
 class Footer(QWidget):
+    switch = Signal(int)
     def __init__(self):
         super().__init__()
 
@@ -167,9 +187,11 @@ class Footer(QWidget):
             if i == 0:
                 button.setChecked(True)
 
-            self.button_group.addButton(button)
+            self.button_group.addButton(button, i)
             self.main_layout.addWidget(button)
             self.main_layout.addStretch()
+
+        self.button_group.idClicked.connect(self.switch.emit)
 
 
 class MainWindow(QMainWindow):
